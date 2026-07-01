@@ -1,193 +1,169 @@
-"""BCG X NovaMart Analytics — Streamlit Dashboard Entry Point.
-
-Landing page with KPI cards loaded from the data layer.
-"""
+"""NovaMart Analytics — Dashboard landing page."""
 
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
 
 import streamlit as st
 
-# ── Page configuration (must be the first Streamlit call) ────────────────────
 st.set_page_config(
-    page_title="BCG X | NovaMart Analytics",
-    page_icon="",
+    page_title="NovaMart Analytics",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Ensure src is importable
 _repo = Path(__file__).resolve().parent.parent
 if str(_repo / "src") not in sys.path:
     sys.path.insert(0, str(_repo / "src"))
+if str(_repo) not in sys.path:
+    sys.path.insert(0, str(_repo))
 
-# ── Custom CSS — BCG X brand palette ─────────────────────────────────────────
+from dashboard.components.styles import inject_css, kpi_card, section_header, insight
+
+inject_css()
+
+# ── Sidebar brand ─────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown(
+        """<div style="padding:0.5rem 0 1.5rem 0; border-bottom:1px solid #30363D; margin-bottom:1rem;">
+            <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;color:#00A651;text-transform:uppercase;">
+                Analytics Simulation
+            </div>
+            <div style="font-size:1rem;font-weight:600;color:#E6EDF3;margin-top:0.2rem;">
+                NovaMart Intelligence
+            </div>
+            <div style="font-size:0.7rem;color:#8B949E;margin-top:0.15rem;">
+                BCG X–Inspired Methodology
+            </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+# ── Hero header ───────────────────────────────────────────────────────────────
 st.markdown(
     """
-    <style>
-        :root {
-            --bcgx-green:  #00A651;
-            --bcgx-dark:   #1a1a2e;
-            --bcgx-grey:   #F5F5F5;
-            --bcgx-slate:  #4A5568;
-        }
-        .main-header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213E 50%, #0F3460 100%);
-            padding: 2rem 2.5rem;
-            border-radius: 12px;
-            color: white;
-            margin-bottom: 2rem;
-        }
-        .main-header h1 { color: #00A651; margin: 0 0 0.25rem 0; font-size: 2.2rem; }
-        .main-header h3 { color: #CBD5E0; margin: 0; font-weight: 400; font-size: 1.1rem; }
-        .main-header .subtitle { color: #A0AEC0; font-size: 0.9rem; margin-top: 0.5rem; }
-        .section-card {
-            background: #FAFAFA;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 1rem;
-        }
-        .metric-note {
-            background: #EBF8F1;
-            border-left: 4px solid #00A651;
-            padding: 0.75rem 1rem;
-            border-radius: 0 8px 8px 0;
-            font-size: 0.9rem;
-            color: #276749;
-            margin-top: 1.5rem;
-        }
-        div[data-testid="metric-container"] {
-            background: white;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ── Header ────────────────────────────────────────────────────────────────────
-st.markdown(
-    """
-    <div class="main-header">
-        <h1>NovaMart Analytics &nbsp;&mdash;&nbsp; BCG X</h1>
-        <h3>Retail Intelligence Platform &mdash; Fortune 500 Consulting Engagement</h3>
-        <div class="subtitle">
-            Powered by BCG X &bull; Confidential &bull; For NovaMart Leadership Use Only
+    <div style="padding:2rem 2rem 1.5rem 2rem; background:linear-gradient(135deg,#161B27 0%,#1C2333 100%);
+         border:1px solid #30363D; border-radius:12px; margin-bottom:2rem;">
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.14em;color:#00A651;
+                    text-transform:uppercase;margin-bottom:0.6rem;">
+            Simulated Engagement &nbsp;·&nbsp; Advanced Analytics &nbsp;·&nbsp; BCG X–Inspired Delivery
         </div>
+        <h1 style="font-size:2rem;font-weight:700;color:#E6EDF3;margin:0 0 0.4rem 0;letter-spacing:-0.03em;">
+            NovaMart Retail Intelligence
+        </h1>
+        <p style="color:#8B949E;font-size:0.9rem;margin:0;max-width:620px;line-height:1.6;">
+            End-to-end analytics engagement covering margin diagnosis, customer churn,
+            store portfolio optimization, pricing elasticity, and marketing ROI —
+            36 months of transaction data across 800 stores.
+        </p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-_data_loaded = False
-_tx = None
-_stores = None
-_customers = None
-
+_data_ok = False
 try:
-    import warnings
-
-    warnings.filterwarnings("ignore")
     from bcgx.data.loader import DataLoader
-
     _loader = DataLoader()
     _data = _loader.load_all()
     _tx = _data["transactions"]
     _stores = _data["stores"]
     _customers = _data["customers"]
-    _data_loaded = True
+    _data_ok = True
 except Exception:
     pass
 
-# ── KPI Metric Cards ──────────────────────────────────────────────────────────
-st.subheader("Key Performance Indicators")
+# ── KPI row ───────────────────────────────────────────────────────────────────
+section_header("Key Performance Indicators")
+c1, c2, c3, c4, c5 = st.columns(5)
 
-m1, m2, m3, m4 = st.columns(4)
-
-if _data_loaded and _tx is not None:
+if _data_ok:
     total_rev = _tx["gross_revenue"].sum()
     total_profit = _tx["gross_profit"].sum()
-    margin = total_profit / total_rev * 100 if total_rev > 0 else 0
-    n_months = _tx["date"].dt.to_period("M").nunique()
-    monthly_rev = total_rev / n_months
+    margin = total_profit / total_rev * 100
+    import pandas as pd
+    _tx["ym"] = pd.to_datetime(_tx["date"]).dt.to_period("M")
+    months = sorted(_tx["ym"].unique())
+    m_early = _tx[_tx["ym"].isin(months[:3])]
+    m_late  = _tx[_tx["ym"].isin(months[-3:])]
+    m_start = m_early["gross_profit"].sum() / m_early["gross_revenue"].sum() * 100
+    m_end   = m_late["gross_profit"].sum()  / m_late["gross_revenue"].sum()  * 100
+    margin_drift = m_end - m_start
 
-    with m1:
-        st.metric("Total Revenue (36m)", f"${total_rev/1e6:.1f}M", help="Gross revenue over 36 months")
-    with m2:
-        st.metric("Avg Gross Margin", f"{margin:.1f}%", help="Average gross margin across all transactions")
-    with m3:
-        st.metric("Total Stores", f"{len(_stores):,}", help="Active NovaMart store locations")
-    with m4:
-        st.metric("Total Customers", f"{len(_customers):,}", help="Unique customers in the loyalty programme")
+    with c1:
+        kpi_card("Total Revenue", f"${total_rev/1e6:.1f}M", sub="36-month cumulative")
+    with c2:
+        kpi_card("Gross Profit", f"${total_profit/1e6:.1f}M", sub="36-month cumulative")
+    with c3:
+        kpi_card("Avg Gross Margin", f"{margin:.1f}%",
+                 delta=f"{margin_drift:+.1f}pp Y1→Y3", positive=(margin_drift >= 0))
+    with c4:
+        kpi_card("Stores", f"{len(_stores):,}", sub="Active locations")
+    with c5:
+        kpi_card("Loyalty Customers", f"{len(_customers)/1e3:.0f}K", sub="Enrolled members")
 
-    st.markdown(
-        """<div class="metric-note">
-        <strong>Data loaded successfully.</strong>
-        Use the sidebar to navigate to individual analysis modules.
-        </div>""",
-        unsafe_allow_html=True,
+    st.markdown("<div style='margin-top:0.5rem;'></div>", unsafe_allow_html=True)
+    insight(
+        f"<strong>Data loaded.</strong> {len(_tx):,} transactions across "
+        f"{_tx['ym'].nunique()} months. "
+        f"Margin trend: <strong>{m_start:.1f}% → {m_end:.1f}%</strong> "
+        f"({'▼' if margin_drift < 0 else '▲'} {abs(margin_drift):.1f}pp). "
+        f"Navigate via the sidebar to explore each analysis module."
     )
 else:
-    with m1:
-        st.metric("Total Revenue (36m)", "—")
-    with m2:
-        st.metric("Avg Gross Margin", "—")
-    with m3:
-        st.metric("Total Stores", "—")
-    with m4:
-        st.metric("Total Customers", "—")
-
-    st.warning(
-        "Data not yet generated. Run `python scripts/generate_data.py` to populate this dashboard."
-    )
-
-# ── Navigation ─────────────────────────────────────────────────────────────────
-st.divider()
-col_desc, col_nav = st.columns([2, 1])
-
-with col_desc:
+    with c1: kpi_card("Total Revenue", "—")
+    with c2: kpi_card("Gross Profit", "—")
+    with c3: kpi_card("Avg Gross Margin", "—")
+    with c4: kpi_card("Stores", "—")
+    with c5: kpi_card("Loyalty Customers", "—")
     st.markdown(
-        """<div class="section-card">
-        <h4 style="margin-top:0; color:#1a1a2e;">About This Platform</h4>
-        <p>The <strong>BCG X Analytics Accelerator</strong> surfaces insights across four pillars:</p>
-        <ul>
-            <li><strong>Customer Intelligence</strong> — churn prediction, CLV segmentation</li>
-            <li><strong>Store Performance</strong> — ranking, anomaly detection, benchmarking</li>
-            <li><strong>Pricing &amp; Promotion</strong> — elasticity modelling, margin recovery</li>
-            <li><strong>Marketing Mix</strong> — spend attribution, ROI optimisation, media planning</li>
-        </ul>
-        </div>""",
+        '<div class="warn-box"><strong>No data found.</strong> Run <code>make generate-data</code> to populate the dashboard.</div>',
         unsafe_allow_html=True,
     )
 
-with col_nav:
-    st.markdown(
-        """<div class="section-card">
-        <h4 style="margin-top:0; color:#1a1a2e;">Dashboard Pages</h4>
-        <ul style="color:#4A5568; font-size:0.9rem;">
-            <li>01 Executive Overview</li>
-            <li>02 Data Audit</li>
-            <li>03 EDA</li>
-            <li>04 Statistical Analysis</li>
-            <li>05 Model Performance</li>
-            <li>06 Scenario Simulator</li>
-            <li>07 Recommendations</li>
-            <li>08 AI Copilot</li>
-        </ul>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+# ── Module cards ──────────────────────────────────────────────────────────────
+section_header("Analytics Modules")
 
-st.divider()
-st.caption(
-    "BCG X Analytics Accelerator v1.0.0  |  "
-    "Confidential — NovaMart Internal Use Only  |  "
-    "2024 Boston Consulting Group"
+modules = [
+    ("📈", "Executive Overview", "Revenue, profit, margin trends and store portfolio heatmap."),
+    ("🔍", "Data Audit", "Quality scorecard — completeness, duplicates, outlier detection."),
+    ("📊", "Exploratory Analysis", "Univariate, bivariate and temporal business insights."),
+    ("🧪", "Statistical Analysis", "Hypothesis tests, RFM segmentation, price elasticity."),
+    ("🤖", "Model Performance", "Churn, store, MMM and elasticity model comparison + SHAP."),
+    ("⚡", "Scenario Simulator", "What-if: price change, marketing reallocation, churn reduction."),
+    ("🎯", "Recommendations", "8 RICE-scored strategic actions ranked by revenue impact."),
+    ("💬", "AI Copilot", "Ask any business question — grounded answers from live data."),
+]
+
+cols = st.columns(4)
+for i, (icon, name, desc) in enumerate(modules):
+    with cols[i % 4]:
+        st.markdown(
+            f"""<div style="background:#1C2333;border:1px solid #30363D;border-radius:10px;
+                    padding:1.4rem 1.5rem;margin-bottom:0.75rem;">
+                <div style="font-size:1.6rem;margin-bottom:0.5rem;">{icon}</div>
+                <div style="font-size:0.95rem;font-weight:600;color:#E6EDF3;margin-bottom:0.35rem;">
+                    {name}
+                </div>
+                <div style="font-size:0.82rem;color:#8B949E;line-height:1.55;">{desc}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+# ── Footer ────────────────────────────────────────────────────────────────────
+st.markdown(
+    """<div style="margin-top:2rem;padding-top:1rem;border-top:1px solid #21262D;
+            display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.7rem;color:#8B949E;">
+            Analytics Simulation &nbsp;·&nbsp; NovaMart Engagement &nbsp;·&nbsp; BCG X–Inspired
+        </span>
+        <span style="font-size:0.7rem;color:#8B949E;">v0.1.0</span>
+    </div>""",
+    unsafe_allow_html=True,
 )

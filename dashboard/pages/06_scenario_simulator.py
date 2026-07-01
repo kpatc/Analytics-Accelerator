@@ -16,9 +16,14 @@ st.set_page_config(page_title="Scenario Simulator | NovaMart", layout="wide")
 _repo = Path(__file__).resolve().parents[2]
 if str(_repo / "src") not in sys.path:
     sys.path.insert(0, str(_repo / "src"))
+if str(_repo) not in sys.path:
+    sys.path.insert(0, str(_repo))
+
+from dashboard.components.styles import inject_css, section_header, insight, kpi_card, page_header
+inject_css()
 
 st.title("Scenario Simulator")
-st.caption("BCG X Analytics Accelerator | Confidential — Interactive What-If Analysis")
+st.caption("Analytics Simulation · BCG X–Inspired Methodology")
 
 # ── Sidebar: Scenario selector ────────────────────────────────────────────────
 scenario = st.sidebar.radio(

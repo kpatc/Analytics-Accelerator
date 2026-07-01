@@ -19,10 +19,15 @@ st.set_page_config(page_title="AI Copilot | NovaMart", layout="wide")
 _repo = Path(__file__).resolve().parents[2]
 if str(_repo / "src") not in sys.path:
     sys.path.insert(0, str(_repo / "src"))
+if str(_repo) not in sys.path:
+    sys.path.insert(0, str(_repo))
+
+from dashboard.components.styles import inject_css, section_header, insight, kpi_card, page_header
+inject_css()
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("Executive Analytics Copilot")
-st.caption("BCG X Analytics Accelerator · Powered by Anthropic Claude + Tool Use")
+st.caption("Analytics Simulation · BCG X–Inspired Methodology · Powered by Anthropic Claude")
 
 st.markdown(
     """
@@ -33,7 +38,7 @@ st.markdown(
         </h3>
         <p style="color: #CBD5E0; margin: 0;">
             The AI Copilot synthesises insights from 36 months of transaction data,
-            ML model outputs, and BCG X analytical frameworks. Every answer is grounded
+            ML model outputs, and advanced analytics frameworks inspired by real consulting delivery. Every answer is grounded
             in actual NovaMart data — retrieved in real time via analytics tools.
         </p>
     </div>
@@ -154,6 +159,6 @@ with st.sidebar:
 
     st.divider()
     st.caption(
-        "Built by BCG X | Powered by Anthropic Claude | "
+        "Analytics Simulation | Powered by Anthropic Claude | "
         "Data: NovaMart synthetic 36-month retail dataset"
     )

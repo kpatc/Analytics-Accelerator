@@ -170,20 +170,13 @@ make docker-up
 
 ## AI Copilot — How It Works
 
-The Executive Analytics Copilot uses Anthropic Claude with the **tool-use pattern**:
+The copilot implements a **full agentic loop** using Anthropic Claude's native tool-use API — not a chatbot with hardcoded answers. Claude receives the user's question alongside 7 analytics tool definitions, decides which to call, executes them against live NovaMart parquet data, and synthesises a consulting-quality answer grounded in real figures. The loop repeats up to 5 iterations so Claude can chain tools for complex, multi-part questions.
 
-```
-User question → Claude decides which analytics tools to call
-             → Tools retrieve real data (revenue, churn, store performance, etc.)
-             → Claude synthesises a consulting-quality answer grounded in the data
-```
+**Why tool-use instead of RAG?** The analytics layer returns structured JSON (exact KPIs, p-values, model metrics) — vector similarity retrieval would introduce noise on data that is already perfectly queryable. Tool-use gives Claude precise numbers, not approximate matches.
 
-Seven analytics tools are exposed: `get_financial_summary`, `get_churn_analysis`,
-`get_store_performance`, `get_marketing_roi`, `get_pricing_analysis`,
-`get_recommendations`, `simulate_scenario`.
+Every response shows which tools were called, giving full auditability. Claude cannot cite a figure it didn't retrieve — if data isn't available it says so rather than hallucinating.
 
-The copilot cannot hallucinate facts that aren't in the data layer. If it can't retrieve
-a number, it says so rather than inventing one.
+The 7 tools: `get_financial_summary` · `get_churn_analysis` · `get_store_performance` · `get_marketing_roi` · `get_pricing_analysis` · `get_recommendations` · `simulate_scenario`
 
 To enable: set `ANTHROPIC_API_KEY` in `.env`.
 

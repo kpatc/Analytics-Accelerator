@@ -16,9 +16,14 @@ st.set_page_config(page_title="Data Audit | NovaMart", layout="wide")
 _repo = Path(__file__).resolve().parents[2]
 if str(_repo / "src") not in sys.path:
     sys.path.insert(0, str(_repo / "src"))
+if str(_repo) not in sys.path:
+    sys.path.insert(0, str(_repo))
+
+from dashboard.components.styles import inject_css, section_header, insight, kpi_card, page_header
+inject_css()
 
 st.title("Data Audit — Quality Scorecard")
-st.caption("BCG X Analytics Accelerator | Confidential")
+st.caption("Analytics Simulation · BCG X–Inspired Methodology")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 try:
