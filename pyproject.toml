@@ -1,0 +1,87 @@
+[project]
+name = "bcgx-analytics-accelerator"
+version = "0.1.0"
+description = "BCG X NovaMart Retail Analytics Consulting Engagement"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "Proprietary" }
+authors = [{ name = "BCG X Analytics Team" }]
+
+dependencies = [
+    "pandas>=2.1.0",
+    "polars>=0.20.0",
+    "numpy>=1.26.0",
+    "scipy>=1.12.0",
+    "statsmodels>=0.14.0",
+    "pingouin>=0.5.4",
+    "scikit-learn>=1.4.0",
+    "xgboost>=2.0.0",
+    "lightgbm>=4.3.0",
+    "catboost>=1.2.0",
+    "shap>=0.44.0",
+    "mlflow>=2.11.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "streamlit>=1.32.0",
+    "plotly>=5.20.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.0",
+    "anthropic>=0.23.0",
+    "httpx>=0.27.0",
+    "faker>=24.0.0",
+    "python-pptx>=0.6.23",
+    "loguru>=0.7.2",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+    "pre-commit>=3.7.0",
+]
+
+[project.scripts]
+generate-data = "bcgx.cli:generate_data"
+run-audit = "bcgx.cli:run_audit"
+train-models = "bcgx.cli:train_models"
+generate-slides = "bcgx.cli:generate_slides"
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "api", "dashboard", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+python_version = "3.11"
+exclude = ["scripts/", "notebooks/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src/bcgx --cov-report=term-missing"
+asyncio_mode = "auto"

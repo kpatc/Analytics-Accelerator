@@ -1,0 +1,32 @@
+###############################################################################
+# BCG X Analytics Accelerator — MLflow Tracking Server
+###############################################################################
+
+FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="BCG X MLflow Tracking Server"
+LABEL org.opencontainers.image.version="0.1.0"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir mlflow>=2.11.0 boto3
+
+# Create non-root user
+RUN groupadd --gid 1001 mlflow && \
+    useradd --uid 1001 --gid mlflow --shell /bin/bash --create-home mlflow
+
+# MLflow artifact store
+RUN mkdir -p /mlruns && chown -R mlflow:mlflow /mlruns
+
+USER mlflow
+
+EXPOSE 5000
+
+CMD ["mlflow", "server", \
+     "--host", "0.0.0.0", \
+     "--port", "5000", \
+     "--backend-store-uri", "/mlruns", \
+     "--default-artifact-root", "/mlruns/artifacts"]

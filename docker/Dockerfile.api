@@ -1,0 +1,53 @@
+###############################################################################
+# BCG X Analytics Accelerator — FastAPI Backend
+# Multi-stage build: builder → runtime (non-root)
+###############################################################################
+
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency manifests first (layer cache optimisation)
+COPY pyproject.toml ./
+COPY src/ ./src/
+
+# Install the package and all runtime dependencies into a prefix
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install ".[dev]" || \
+    pip install --no-cache-dir --prefix=/install .
+
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+LABEL org.opencontainers.image.title="BCG X NovaMart Analytics API"
+LABEL org.opencontainers.image.version="0.1.0"
+
+# Create non-root user
+RUN groupadd --gid 1001 bcgx && \
+    useradd --uid 1001 --gid bcgx --shell /bin/bash --create-home bcgx
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application source
+COPY --chown=bcgx:bcgx src/ ./src/
+COPY --chown=bcgx:bcgx api/ ./api/
+
+# Create data and log directories with correct ownership
+RUN mkdir -p data/raw data/processed data/features data/outputs logs && \
+    chown -R bcgx:bcgx /app
+
+USER bcgx
+
+EXPOSE 8000
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

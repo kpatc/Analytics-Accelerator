@@ -1,0 +1,52 @@
+###############################################################################
+# BCG X Analytics Accelerator — Streamlit Dashboard
+# Multi-stage build: builder → runtime (non-root)
+###############################################################################
+
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+COPY src/ ./src/
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install ".[dev]" || \
+    pip install --no-cache-dir --prefix=/install .
+
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+LABEL org.opencontainers.image.title="BCG X NovaMart Analytics Dashboard"
+LABEL org.opencontainers.image.version="0.1.0"
+
+# Create non-root user
+RUN groupadd --gid 1001 bcgx && \
+    useradd --uid 1001 --gid bcgx --shell /bin/bash --create-home bcgx
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application source
+COPY --chown=bcgx:bcgx src/ ./src/
+COPY --chown=bcgx:bcgx dashboard/ ./dashboard/
+
+# Streamlit config directory
+RUN mkdir -p /home/bcgx/.streamlit && chown -R bcgx:bcgx /home/bcgx/.streamlit
+
+USER bcgx
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "dashboard/app.py", \
+     "--server.port", "8501", \
+     "--server.address", "0.0.0.0", \
+     "--server.headless", "true", \
+     "--browser.gatherUsageStats", "false"]
