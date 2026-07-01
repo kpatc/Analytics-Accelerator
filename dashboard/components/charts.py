@@ -10,18 +10,52 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# BCG X brand palette
+# Dark design system palette
 BCGX_GREEN = "#00A651"
-BCGX_DARK = "#1a1a2e"
-BCGX_GREY = "#F5F5F5"
-BCGX_SLATE = "#4A5568"
-BCGX_BLUE = "#0F3460"
+BCGX_BLUE = "#58A6FF"
+BCGX_AMBER = "#FFA500"
+BCGX_RED = "#FF6B6B"
+BCGX_PURPLE = "#BC8CFF"
+BG = "#0D1117"
+CARD = "#1C2333"
+BORDER = "#30363D"
+TEXT = "#E6EDF3"
+MUTED = "#8B949E"
 
 _LAYOUT_DEFAULTS = dict(
-    paper_bgcolor="white",
-    plot_bgcolor="white",
-    font=dict(family="Inter, Arial, sans-serif", color=BCGX_SLATE),
-    margin=dict(l=40, r=20, t=60, b=40),
+    paper_bgcolor=CARD,
+    plot_bgcolor=CARD,
+    font=dict(family="Inter, -apple-system, sans-serif", size=12, color=MUTED),
+    margin=dict(l=48, r=24, t=52, b=40),
+    title_font=dict(size=13, color=TEXT, family="Inter, sans-serif"),
+    xaxis=dict(
+        gridcolor="#21262D",
+        linecolor=BORDER,
+        tickcolor=BORDER,
+        tickfont=dict(color=MUTED, size=11),
+        title_font=dict(color=MUTED, size=11),
+    ),
+    yaxis=dict(
+        gridcolor="#21262D",
+        linecolor=BORDER,
+        tickcolor=BORDER,
+        tickfont=dict(color=MUTED, size=11),
+        title_font=dict(color=MUTED, size=11),
+    ),
+    legend=dict(
+        bgcolor="rgba(0,0,0,0)",
+        font=dict(color=MUTED, size=11),
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1,
+    ),
+    hoverlabel=dict(
+        bgcolor="#161B27",
+        bordercolor=BORDER,
+        font=dict(color=TEXT, size=12),
+    ),
 )
 
 
@@ -43,31 +77,21 @@ def revenue_trend_chart(df: pd.DataFrame) -> go.Figure:
     monthly["margin_pct"] = monthly["profit"] / monthly["revenue"] * 100
 
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=monthly["year_month"],
-            y=monthly["revenue"] / 1e6,
-            name="Revenue ($M)",
-            line=dict(color=BCGX_BLUE, width=2.5),
-            fill="tozeroy",
-            fillcolor="rgba(15,52,96,0.08)",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=monthly["year_month"],
-            y=monthly["profit"] / 1e6,
-            name="Gross Profit ($M)",
-            line=dict(color=BCGX_GREEN, width=2.5),
-        )
-    )
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=monthly["year_month"], y=monthly["revenue"] / 1e6,
+        name="Revenue ($M)", line=dict(color=BCGX_BLUE, width=2),
+        fill="tozeroy", fillcolor="rgba(88,166,255,0.07)",
+    ))
+    fig.add_trace(go.Scatter(
+        x=monthly["year_month"], y=monthly["profit"] / 1e6,
+        name="Gross Profit ($M)", line=dict(color=BCGX_GREEN, width=2),
+        fill="tozeroy", fillcolor="rgba(0,166,81,0.07)",
+    ))
     fig.update_layout(
-        title="Is NovaMart's revenue and profit trending in the right direction?",
-        xaxis_title="Month",
-        yaxis_title="USD (millions)",
-        hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        **_LAYOUT_DEFAULTS,
+        title="Revenue & Profit Trend",
+        xaxis_title=None, yaxis_title="USD (millions)",
+        hovermode="x unified", **_LAYOUT_DEFAULTS,
     )
     return fig
 
@@ -90,29 +114,21 @@ def margin_trend_chart(df: pd.DataFrame) -> go.Figure:
     monthly["margin_pct"] = monthly["profit"] / monthly["revenue"] * 100
 
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=monthly["year_month"],
-            y=monthly["margin_pct"],
-            name="Gross Margin %",
-            line=dict(color=BCGX_GREEN, width=2.5),
-            fill="tozeroy",
-            fillcolor="rgba(0,166,81,0.10)",
-        )
-    )
-    # Add reference line at overall average
+    fig.add_trace(go.Scatter(
+        x=monthly["year_month"], y=monthly["margin_pct"],
+        name="Gross Margin %", line=dict(color=BCGX_GREEN, width=2),
+        fill="tozeroy", fillcolor="rgba(0,166,81,0.08)",
+    ))
     avg = monthly["margin_pct"].mean()
     fig.add_hline(
-        y=avg,
-        line_dash="dash",
-        line_color=BCGX_SLATE,
-        annotation_text=f"36-month avg: {avg:.1f}%",
+        y=avg, line_dash="dot", line_color=MUTED, line_width=1,
+        annotation_text=f"avg {avg:.1f}%",
+        annotation_font=dict(color=MUTED, size=11),
         annotation_position="bottom right",
     )
     fig.update_layout(
-        title="Is margin declining? (Gross Margin % over 36 months)",
-        xaxis_title="Month",
-        yaxis_title="Gross Margin %",
+        title="Gross Margin % — 36-Month Trend",
+        xaxis_title=None, yaxis_title="Gross Margin %",
         **_LAYOUT_DEFAULTS,
     )
     return fig
@@ -136,25 +152,17 @@ def store_scatter_chart(stores: pd.DataFrame, transactions: pd.DataFrame) -> go.
     store_tx["margin_pct"] = store_tx["profit"] / store_tx["revenue"] * 100
     merged = stores.merge(store_tx, on="store_id", how="left")
 
-    colour_map = {"A": BCGX_GREEN, "B": "#F6AD55", "C": "#FC4E03"}
+    colour_map = {"A": BCGX_GREEN, "B": BCGX_AMBER, "C": BCGX_RED}
 
     fig = px.scatter(
-        merged,
-        x="sq_footage",
-        y="margin_pct",
-        color="performance_cluster",
-        color_discrete_map=colour_map,
-        hover_data=["store_id", "city", "store_format", "manager_tenure_years"],
-        labels={
-            "sq_footage": "Store Size (sq ft)",
-            "margin_pct": "Gross Margin %",
-            "performance_cluster": "Cluster",
-        },
+        merged, x="sq_footage", y="margin_pct",
+        color="performance_cluster", color_discrete_map=colour_map,
+        hover_data=["store_id", "store_format", "manager_tenure_years"],
+        labels={"sq_footage": "Store Size (sq ft)", "margin_pct": "Gross Margin %", "performance_cluster": "Cluster"},
+        opacity=0.75,
     )
-    fig.update_layout(
-        title="Which stores are over- and under-performing? (Cluster A=best, C=worst)",
-        **_LAYOUT_DEFAULTS,
-    )
+    fig.update_traces(marker=dict(size=7, line=dict(width=0)))
+    fig.update_layout(title="Store Portfolio — Size vs Margin by Cluster", **_LAYOUT_DEFAULTS)
     return fig
 
 
@@ -177,21 +185,14 @@ def rfm_donut_chart(rfm: pd.DataFrame) -> go.Figure:
     counts = rfm[group_col].value_counts().reset_index()
     counts.columns = ["segment", "count"]
 
-    colour_seq = [BCGX_GREEN, BCGX_BLUE, "#F6AD55", "#FC4E03", BCGX_SLATE]
+    colour_seq = [BCGX_GREEN, BCGX_BLUE, BCGX_AMBER, BCGX_RED, BCGX_PURPLE]
 
-    fig = go.Figure(
-        go.Pie(
-            labels=counts["segment"],
-            values=counts["count"],
-            hole=0.55,
-            marker=dict(colors=colour_seq[: len(counts)]),
-            textinfo="label+percent",
-        )
-    )
-    fig.update_layout(
-        title="How are customers distributed across value segments?",
-        **_LAYOUT_DEFAULTS,
-    )
+    fig = go.Figure(go.Pie(
+        labels=counts["segment"], values=counts["count"], hole=0.6,
+        marker=dict(colors=colour_seq[: len(counts)], line=dict(color=CARD, width=2)),
+        textinfo="label+percent", textfont=dict(color=TEXT, size=11),
+    ))
+    fig.update_layout(title="Customer Segment Distribution", **_LAYOUT_DEFAULTS)
     return fig
 
 
@@ -207,22 +208,13 @@ def feature_importance_chart(feature_importance: pd.Series, title: str) -> go.Fi
     """
     top15 = feature_importance.nlargest(15).sort_values()
 
-    fig = go.Figure(
-        go.Bar(
-            x=top15.values,
-            y=top15.index,
-            orientation="h",
-            marker=dict(
-                color=top15.values,
-                colorscale=[[0, "#CBD5E0"], [1, BCGX_GREEN]],
-                showscale=False,
-            ),
-        )
-    )
-    fig.update_layout(
-        title=title,
-        xaxis_title="Feature Importance",
-        yaxis_title="",
-        **_LAYOUT_DEFAULTS,
-    )
+    fig = go.Figure(go.Bar(
+        x=top15.values, y=top15.index, orientation="h",
+        marker=dict(
+            color=top15.values,
+            colorscale=[[0, "#1C2333"], [1, BCGX_GREEN]],
+            showscale=False,
+        ),
+    ))
+    fig.update_layout(title=title, xaxis_title="Importance", yaxis_title=None, **_LAYOUT_DEFAULTS)
     return fig
