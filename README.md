@@ -1,4 +1,4 @@
-# BCG X Analytics Accelerator — NovaMart Retail Intelligence
+# Analytics Accelerator : NovaMart Retail Intelligence
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688.svg)](https://fastapi.tiangolo.com)
@@ -202,7 +202,7 @@ Four business what-if scenarios, each computing real financial impact from the d
 
 ---
 
-## For BCG X Interviewers
+## For Interviewers
 
 This project demonstrates end-to-end analytics consulting delivery: from business problem
 framing through statistical rigor, production ML, and executive communication.
