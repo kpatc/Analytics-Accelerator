@@ -150,6 +150,41 @@ make docker-up
 
 ---
 
+## Dashboard
+
+![Landing Page](docs/app.png)
+
+### Executive Overview
+<table><tr>
+<td><img src="docs/executive1.png"/></td>
+<td><img src="docs/executive2.png"/></td>
+</tr></table>
+
+### Data Audit
+![Data Audit](docs/audit.png)
+
+### Exploratory Analysis
+<table><tr>
+<td><img src="docs/eda1.png"/></td>
+<td><img src="docs/eda2.png"/></td>
+</tr></table>
+
+![Bivariate EDA](docs/bivariateeda.png)
+
+### Statistical Analysis
+<table><tr>
+<td><img src="docs/statical1.png"/></td>
+<td><img src="docs/statical2.png"/></td>
+</tr></table>
+
+### Model Performance
+![Model Performance](docs/modling.png)
+
+### Strategic Recommendations
+![Recommendations](docs/recomedation.png)
+
+---
+
 ## Consulting Deliverables
 
 | Deliverable | Location | Description |

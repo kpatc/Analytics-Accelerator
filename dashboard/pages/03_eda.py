@@ -212,11 +212,13 @@ elif analysis == "Temporal":
 
     # Month-over-month revenue
     monthly["mom_change_pct"] = monthly["revenue"].pct_change() * 100
+    monthly_mom = monthly.dropna(subset=["mom_change_pct"]).copy()
+    monthly_mom["direction"] = monthly_mom["mom_change_pct"].apply(lambda v: "Positive" if v > 0 else "Negative")
     fig2 = px.bar(
-        monthly.dropna(subset=["mom_change_pct"]),
+        monthly_mom,
         x="year_month",
         y="mom_change_pct",
-        color=(monthly["mom_change_pct"] > 0).map({True: "Positive", False: "Negative"}).dropna(),
+        color="direction",
         color_discrete_map={"Positive": "#00A651", "Negative": "#FC4E03"},
         title="Month-over-month revenue change — where are the seasonal dips?",
         labels={"year_month": "Month", "mom_change_pct": "MoM Change %"},
