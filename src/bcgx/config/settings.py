@@ -75,6 +75,19 @@ class AnthropicConfig(BaseSettings):
     model: str = Field(default="claude-sonnet-4-6", alias="ANTHROPIC_MODEL")
 
 
+class OpenRouterConfig(BaseSettings):
+    """OpenRouter configuration (OpenAI-compatible, for testing alternative models)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    api_key: str = Field(default="", alias="OPENROUTER_KEY")
+    model: str = Field(default="anthropic/claude-sonnet-4.5", alias="OPENROUTER_MODEL")
+
+
 class DashboardConfig(BaseSettings):
     """Streamlit dashboard configuration."""
 
@@ -113,6 +126,7 @@ class Settings(BaseSettings):
     mlflow: MLflowConfig = Field(default_factory=MLflowConfig)
     api: APIConfig = Field(default_factory=APIConfig)
     anthropic: AnthropicConfig = Field(default_factory=AnthropicConfig)
+    openrouter: OpenRouterConfig = Field(default_factory=OpenRouterConfig)
     dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
 
     @property

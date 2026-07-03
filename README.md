@@ -4,6 +4,10 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688.svg)](https://fastapi.tiangolo.com)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.32-FF4B4B.svg)](https://streamlit.io)
 [![MLflow](https://img.shields.io/badge/MLflow-2.11-0194E2.svg)](https://mlflow.org)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-F7931E.svg)](https://scikit-learn.org)
+[![SciPy](https://img.shields.io/badge/SciPy-Hypothesis%20Testing-8CAAE6.svg)](https://scipy.org)
+[![SHAP](https://img.shields.io/badge/SHAP-Explainability-FF6B6B.svg)](https://shap.readthedocs.io)
+[![Agentic AI](https://img.shields.io/badge/Agentic%20AI-Tool%20Use%20Loop-blueviolet.svg)](#ai-copilot--how-it-works)
 [![Tests](https://img.shields.io/badge/Tests-112%20passing-brightgreen.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -213,7 +217,14 @@ Every response shows which tools were called, giving full auditability. Claude c
 
 The 7 tools: `get_financial_summary` · `get_churn_analysis` · `get_store_performance` · `get_marketing_roi` · `get_pricing_analysis` · `get_recommendations` · `simulate_scenario`
 
-To enable: set `ANTHROPIC_API_KEY` in `.env`.
+<table>
+<tr>
+<td><img src="docs/copilot1.png"/></td>
+<td><img src="docs/copilot2.png"/></td>
+</tr>
+</table>
+
+To enable: set `OPENROUTER_KEY` or `ANTHROPIC_API_KEY` in `.env`.
 
 ---
 

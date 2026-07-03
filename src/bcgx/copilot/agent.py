@@ -1,12 +1,12 @@
-"""Executive Analytics Copilot — Anthropic Claude API with tool use.
+"""Executive Analytics Copilot — supports Anthropic Claude API and OpenRouter.
 
 The copilot answers business questions by:
-1. Sending the question to Claude with analytics tool definitions
-2. Executing whichever tools Claude requests against real NovaMart data
-3. Feeding the grounded results back to Claude for final synthesis
-4. Repeating until Claude produces a final text answer (stop_reason="end_turn")
+1. Sending the question to the LLM with analytics tool definitions
+2. Executing whichever tools the model requests against real NovaMart data
+3. Feeding the grounded results back for final synthesis
+4. Repeating until the model produces a final text answer
 
-This ensures every answer is grounded in actual project data — no hallucination.
+Backend priority: OpenRouter (OPENROUTER_KEY) → Anthropic (ANTHROPIC_API_KEY).
 """
 
 from __future__ import annotations
@@ -24,46 +24,62 @@ from bcgx.copilot.tools import TOOL_DEFINITIONS, TOOL_FUNCTIONS
 
 @dataclass
 class CopilotResponse:
-    """Structured response from the Executive Copilot.
-
-    Attributes:
-        answer: Markdown-formatted answer ready for display.
-        tools_called: Ordered list of tool names invoked during the response.
-        thinking_steps: Human-readable log of what the copilot did.
-        sources: Data source labels cited in the answer.
-    """
-
     answer: str
     tools_called: list[str] = field(default_factory=list)
     thinking_steps: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
 
 
+# ── Tool definition converter (Anthropic → OpenAI format) ─────────────────────
+
+def _to_openai_tools(anthropic_tools: list[dict]) -> list[dict]:
+    """Convert Anthropic ToolParam dicts to OpenAI function-calling format."""
+    result = []
+    for t in anthropic_tools:
+        result.append({
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "parameters": t.get("input_schema", {"type": "object", "properties": {}}),
+            },
+        })
+    return result
+
+
 # ── Copilot class ──────────────────────────────────────────────────────────────
 
 class ExecutiveCopilot:
-    """AI-powered analytics copilot backed by Claude with tool use.
+    """AI-powered analytics copilot backed by Claude (Anthropic or OpenRouter).
 
-    Args:
-        api_key: Anthropic API key.  Falls back to ANTHROPIC_API_KEY env var
-                 (via settings) if not provided.
-        model: Claude model ID.  Falls back to settings value if not provided.
+    Backend selection:
+    - If OPENROUTER_KEY is set → uses OpenRouter (OpenAI-compatible API).
+    - Otherwise falls back to ANTHROPIC_API_KEY with the native Anthropic SDK.
     """
 
-    _MAX_ITERATIONS: int = 5  # Guard against infinite tool-use loops
+    _MAX_ITERATIONS: int = 5
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         from bcgx.config.settings import get_settings
 
         settings = get_settings()
-        self._api_key = api_key or settings.anthropic.api_key or None
-        self._model = model or settings.anthropic.model or "claude-sonnet-4-6"
-        self._client = None  # Lazy-initialise so import succeeds without a key
+
+        # Prefer OpenRouter when its key is configured
+        or_key = settings.openrouter.api_key
+        if or_key:
+            self._backend = "openrouter"
+            self._api_key = or_key
+            self._model = model or settings.openrouter.model
+        else:
+            self._backend = "anthropic"
+            self._api_key = api_key or settings.anthropic.api_key or None
+            self._model = model or settings.anthropic.model or "claude-sonnet-4-6"
+
+        self._client = None  # Lazy-initialised
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def is_configured(self) -> bool:
-        """Return True if an Anthropic API key is available."""
         return bool(self._api_key)
 
     def ask(
@@ -71,58 +87,142 @@ class ExecutiveCopilot:
         question: str,
         conversation_history: list[dict] | None = None,
     ) -> CopilotResponse:
-        """Send a business question to the copilot and get a grounded answer.
-
-        Implements the full Claude tool-use agentic loop:
-        - Claude requests tools → we execute them against real data → Claude synthesises.
-
-        Args:
-            question: Natural-language business question.
-            conversation_history: Prior messages for multi-turn conversation.
-                                   Each dict has "role" and "content" keys.
-
-        Returns:
-            CopilotResponse with the answer and metadata.
-        """
         if not self.is_configured():
             return CopilotResponse(
                 answer=(
                     "**AI Copilot Not Configured**\n\n"
-                    "The Executive Analytics Copilot requires an Anthropic API key.\n\n"
-                    "To enable it:\n"
-                    "1. Get an API key from [console.anthropic.com](https://console.anthropic.com)\n"
-                    "2. Add `ANTHROPIC_API_KEY=sk-ant-...` to your `.env` file\n"
-                    "3. Restart the dashboard\n\n"
-                    "The copilot will then answer questions with data grounded in NovaMart's "
-                    "actual 36-month transaction history."
+                    "Set `OPENROUTER_KEY` or `ANTHROPIC_API_KEY` in your `.env` file and restart."
                 ),
                 tools_called=[],
                 thinking_steps=["API key not configured — returning setup instructions."],
                 sources=[],
             )
 
-        client = self._get_client()
+        if self._backend == "openrouter":
+            return self._ask_openrouter(question, conversation_history)
+        return self._ask_anthropic(question, conversation_history)
 
-        # Build initial message list
-        messages: list[dict] = []
+    # ── OpenRouter backend (OpenAI-compatible) ─────────────────────────────────
+
+    def _ask_openrouter(
+        self,
+        question: str,
+        conversation_history: list[dict] | None = None,
+    ) -> CopilotResponse:
+        client = self._get_client()
+        tools = _to_openai_tools(TOOL_DEFINITIONS)  # type: ignore[arg-type]
+
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
         if conversation_history:
-            # Only carry forward user/assistant text messages — not raw tool results
             for msg in conversation_history:
                 if msg.get("role") in ("user", "assistant") and isinstance(
                     msg.get("content"), str
                 ):
                     messages.append({"role": msg["role"], "content": msg["content"]})
-
         messages.append({"role": "user", "content": question})
 
         tools_called: list[str] = []
         thinking_steps: list[str] = []
-        iteration = 0
 
-        while iteration < self._MAX_ITERATIONS:
-            iteration += 1
-            logger.debug(f"Copilot iteration {iteration}, messages={len(messages)}")
+        for iteration in range(1, self._MAX_ITERATIONS + 1):
+            logger.debug(f"OpenRouter iteration {iteration}, messages={len(messages)}")
+            try:
+                response = client.chat.completions.create(
+                    model=self._model,
+                    max_tokens=4096,
+                    tools=tools,
+                    messages=messages,
+                )
+            except Exception as exc:
+                logger.error(f"OpenRouter API call failed: {exc}")
+                return CopilotResponse(
+                    answer=f"**API Error**\n\n{exc}\n\nCheck your OpenRouter key and try again.",
+                    tools_called=tools_called,
+                    thinking_steps=thinking_steps + [f"API error: {exc}"],
+                    sources=[],
+                )
 
+            choice = response.choices[0]
+            finish_reason = choice.finish_reason
+            message = choice.message
+
+            if finish_reason == "tool_calls":
+                # Append assistant message with tool_calls
+                messages.append(message)
+
+                for tc in message.tool_calls or []:
+                    tool_name = tc.function.name
+                    try:
+                        tool_input = json.loads(tc.function.arguments or "{}")
+                    except json.JSONDecodeError:
+                        tool_input = {}
+
+                    thinking_steps.append(
+                        f"Calling tool: {tool_name}"
+                        + (f" with {tool_input}" if tool_input else "")
+                    )
+                    logger.debug(f"Executing tool {tool_name}(input={tool_input})")
+
+                    result_str = self._execute_tool(tool_name, tool_input)
+                    tools_called.append(tool_name)
+
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result_str,
+                    })
+
+            else:
+                # stop / end_turn → final answer
+                answer = (message.content or "").strip()
+                if not answer:
+                    answer = "The copilot did not produce a text response. Please try rephrasing."
+
+                sources = list({
+                    t.replace("get_", "").replace("_", " ").title()
+                    for t in tools_called
+                })
+                thinking_steps.append(f"Generated final answer after {iteration} iteration(s).")
+                logger.info(f"OpenRouter answered in {iteration} iteration(s), tools={tools_called}")
+
+                return CopilotResponse(
+                    answer=answer,
+                    tools_called=tools_called,
+                    thinking_steps=thinking_steps,
+                    sources=sources,
+                )
+
+        logger.warning(f"Copilot hit max iterations ({self._MAX_ITERATIONS})")
+        return CopilotResponse(
+            answer="The copilot reached its maximum analysis depth. Try a more specific question.",
+            tools_called=tools_called,
+            thinking_steps=thinking_steps + ["Max iterations reached."],
+            sources=[],
+        )
+
+    # ── Anthropic backend ──────────────────────────────────────────────────────
+
+    def _ask_anthropic(
+        self,
+        question: str,
+        conversation_history: list[dict] | None = None,
+    ) -> CopilotResponse:
+        client = self._get_client()
+
+        messages: list[dict] = []
+        if conversation_history:
+            for msg in conversation_history:
+                if msg.get("role") in ("user", "assistant") and isinstance(
+                    msg.get("content"), str
+                ):
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": question})
+
+        tools_called: list[str] = []
+        thinking_steps: list[str] = []
+
+        for iteration in range(1, self._MAX_ITERATIONS + 1):
+            logger.debug(f"Anthropic iteration {iteration}, messages={len(messages)}")
             try:
                 response = client.messages.create(
                     model=self._model,
@@ -134,11 +234,7 @@ class ExecutiveCopilot:
             except Exception as exc:
                 logger.error(f"Claude API call failed: {exc}")
                 return CopilotResponse(
-                    answer=(
-                        f"**API Error**\n\n"
-                        f"The copilot encountered an error communicating with Claude: {exc}\n\n"
-                        "Please check your API key and try again."
-                    ),
+                    answer=f"**API Error**\n\n{exc}\n\nCheck your API key and try again.",
                     tools_called=tools_called,
                     thinking_steps=thinking_steps + [f"API error: {exc}"],
                     sources=[],
@@ -147,7 +243,6 @@ class ExecutiveCopilot:
             stop_reason = response.stop_reason
 
             if stop_reason == "end_turn":
-                # Extract text from the final response
                 answer_parts = [
                     block.text
                     for block in response.content
@@ -155,18 +250,15 @@ class ExecutiveCopilot:
                 ]
                 answer = "\n\n".join(answer_parts).strip()
                 if not answer:
-                    answer = "The copilot did not produce a text response. Please try rephrasing your question."
+                    answer = "The copilot did not produce a text response. Please try rephrasing."
 
                 sources = list({
                     t.replace("get_", "").replace("_", " ").title()
                     for t in tools_called
                 })
                 thinking_steps.append(f"Generated final answer after {iteration} iteration(s).")
+                logger.info(f"Copilot answered in {iteration} iteration(s), tools={tools_called}")
 
-                logger.info(
-                    f"Copilot answered in {iteration} iteration(s), "
-                    f"tools={tools_called}"
-                )
                 return CopilotResponse(
                     answer=answer,
                     tools_called=tools_called,
@@ -175,10 +267,8 @@ class ExecutiveCopilot:
                 )
 
             elif stop_reason == "tool_use":
-                # Append the full assistant message (including tool_use blocks)
                 messages.append({"role": "assistant", "content": response.content})
 
-                # Execute every tool_use block and collect results
                 tool_results = []
                 for block in response.content:
                     if block.type != "tool_use":
@@ -197,37 +287,26 @@ class ExecutiveCopilot:
                     result_str = self._execute_tool(tool_name, tool_input)
                     tools_called.append(tool_name)
 
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": tool_use_id,
-                            "content": result_str,
-                        }
-                    )
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": result_str,
+                    })
 
-                # Feed all results back in a single user message
                 messages.append({"role": "user", "content": tool_results})
 
             else:
-                # Unexpected stop reason — bail out
                 logger.warning(f"Unexpected stop_reason: {stop_reason}")
                 return CopilotResponse(
-                    answer=(
-                        f"The copilot stopped unexpectedly (reason: {stop_reason}). "
-                        "Please try again."
-                    ),
+                    answer=f"The copilot stopped unexpectedly (reason: {stop_reason}). Please try again.",
                     tools_called=tools_called,
                     thinking_steps=thinking_steps,
                     sources=[],
                 )
 
-        # Max iterations reached
         logger.warning(f"Copilot hit max iterations ({self._MAX_ITERATIONS})")
         return CopilotResponse(
-            answer=(
-                "The copilot reached its maximum analysis depth without producing a final answer. "
-                "Please try a more specific question."
-            ),
+            answer="The copilot reached its maximum analysis depth. Try a more specific question.",
             tools_called=tools_called,
             thinking_steps=thinking_steps + ["Max iterations reached."],
             sources=[],
@@ -235,33 +314,28 @@ class ExecutiveCopilot:
 
     # ── Private helpers ────────────────────────────────────────────────────────
 
-    def _get_client(self):  # type: ignore[return]
-        """Lazily initialise the Anthropic client."""
+    def _get_client(self):
         if self._client is None:
-            from anthropic import Anthropic
+            if self._backend == "openrouter":
+                from openai import OpenAI
 
-            self._client = Anthropic(api_key=self._api_key)
+                self._client = OpenAI(
+                    api_key=self._api_key,
+                    base_url="https://openrouter.ai/api/v1",
+                )
+            else:
+                from anthropic import Anthropic
+
+                self._client = Anthropic(api_key=self._api_key)
         return self._client
 
     def _execute_tool(self, tool_name: str, tool_input: dict) -> str:
-        """Execute a named tool and return the JSON-encoded result string.
-
-        Args:
-            tool_name: Name of the tool to execute.
-            tool_input: Dict of keyword arguments for the tool.
-
-        Returns:
-            JSON string of the tool output (always valid JSON, never raises).
-        """
         fn = TOOL_FUNCTIONS.get(tool_name)
         if fn is None:
             result = {"error": f"Unknown tool: {tool_name}"}
         else:
             try:
-                if tool_input:
-                    result = fn(**tool_input)
-                else:
-                    result = fn()
+                result = fn(**tool_input) if tool_input else fn()
             except Exception as exc:
                 logger.error(f"Tool {tool_name} raised: {exc}")
                 result = {"error": str(exc), "tool": tool_name}
